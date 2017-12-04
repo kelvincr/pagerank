@@ -1,5 +1,6 @@
 % Instituto Tecnológico de Costa Rica
 % Bases de Datos Avanzadas
+% Kelvin Jimenez Morales
 % PageRank
 -module(pagerank).
 -compile(export_all).
@@ -13,20 +14,22 @@ pool(_, _, _, Results, 0) ->
 pool(Verb, Workers, Works, Results, PendingResults) ->
     {Available_Workers, Pending_Works} = pool_process(Verb, Workers, Works, Results, PendingResults),
     {New_Workers, New_Results, New_PendingResults} = pool_receive(Verb, Available_Workers, Pending_Works, Results, PendingResults),
-    pool(Verb, New_Workers, Works, New_Results, New_PendingResults).
+    pool(Verb, New_Workers, Pending_Works, New_Results, New_PendingResults).
   
 
 pool_process(Verb, Workers, Works, Results, PendingResults) ->
    Available = PendingResults > 0 andalso queue:len(Workers) > 0 andalso length(Works) > 0,
     if Available   ->
+         io:format("Workers ~p  Pending: ~p Work ~p ~n", [Workers, PendingResults, Works]),
          {{value, Worker}, New_Workers} = queue:out(Workers),
          Work2Do = hd(Works),
          New_Works = tl(Works),
+         io:format("New Workers: ~p Pending Works ~p ~n", [New_Workers, New_Works]),
+         {Temp_Available_Workers, Temp_Pending_Works} = pool_process(Verb, New_Workers, New_Works, Results, PendingResults),
          io:format("Sending work from ~p to ~p work: ~p ~n", [self(),Worker,Work2Do]),
-         pool_process(Verb, New_Workers, New_Works, Results, PendingResults),
          Worker ! { Verb, self(), Work2Do },
-         {New_Workers, New_Works};
-         not Available -> busy              
+         {Temp_Available_Workers, Temp_Pending_Works};
+         not Available -> {Workers, Works}              
     end.
 
   pool_receive(Verb, Workers, Works, Results, PendingResults) ->
@@ -127,6 +130,7 @@ kill_workers(R),
  io:format("MR: Data ~p ~n", [MR]),
 merge_multiplication(MR, length(Vector)).
 
+%% [[Row, Weight, Columns],...,[Row, Weight, Columns]]
 create_chunks(Matrix, Vector) ->
     element(1,
         lists:mapfoldl(
